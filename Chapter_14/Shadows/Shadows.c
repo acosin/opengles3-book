@@ -37,6 +37,8 @@
 #include <math.h>
 #include "esUtil.h"
 
+#include <stdio.h>
+
 #define POSITION_LOC    0
 #define COLOR_LOC       1
 
@@ -61,6 +63,10 @@ typedef struct
    GLuint shadowMapTextureWidth;
    GLuint shadowMapTextureHeight;
 
+   //test frame buffer
+   GLuint test_framebufferId;
+   GLuint testTextureId;
+
    // VBOs of the model
    GLuint groundPositionVBO;
    GLuint groundIndicesIBO;
@@ -84,6 +90,62 @@ typedef struct
    float lightPosition[3];
 } UserData;
 
+
+
+unsigned int InnerCheckGLError(const char* file, int line);
+
+#if ENABLE_GL_CHECK
+#define CheckGLError(glFunc) \
+    glFunc;\
+    InnerCheckGLError(__FILE__, __LINE__);
+#else
+#define CheckGLError(glFunc) glFunc;
+
+#endif
+
+const char *ErrorDescription (GLenum flag)
+{
+  static char str[256] = {'\0'};
+
+  switch (flag)
+  {
+    case GL_NO_ERROR:
+      snprintf (str, sizeof (str), "0x%04x:%s", flag, "GL_NO_ERROR");
+      break;
+    case GL_INVALID_ENUM:
+      snprintf (str, sizeof (str), "0x%04x:%s", flag, "GL_INVALID_ENUM");
+      break;
+    case GL_INVALID_VALUE:
+      snprintf (str, sizeof (str), "0x%04x:%s", flag, "GL_INVALID_VALUE");
+      break;
+    case GL_INVALID_OPERATION:
+      snprintf (str, sizeof (str), "0x%04x:%s", flag, "GL_INVALID_OPERATION");
+      break;
+    case GL_INVALID_FRAMEBUFFER_OPERATION:
+      snprintf (str, sizeof (str), "0x%04x:%s", flag, "GL_INVALID_FRAMEBUFFER_OPERATION");
+      break;
+    case GL_OUT_OF_MEMORY:
+      snprintf (str, sizeof (str), "0x%04x:%s", flag, "GL_OUT_OF_MEMORY");
+      break;
+    default:
+      snprintf (str, sizeof (str), "unknown flag:0x%04x", flag);
+    }
+
+    return str;
+}
+
+unsigned int InnerCheckGLError(const char* file, int line)
+{
+        GLenum error_code = glGetError();
+    if (error_code != GL_NO_ERROR)
+      printf("error:%s, line:%d, des:%s\n", file, line, ErrorDescription(error_code));
+      //   TN_LOG(TN_LOG_ERROR) << "ERROR:" << file << ":" << line << " ==>" << ErrorDescription(error_code) <<  std::endl;
+    // else
+    //    TN_LOG(TN_LOG_ERROR) << "ERROR:" << file << ":" << line << " ==>" << ErrorDescription(error_code) <<  std::endl;
+    return error_code;
+}
+
+
 ///
 // Initialize the MVP matrix
 //
@@ -95,7 +157,7 @@ int InitMVP ( ESContext *esContext )
    ESMatrix model;
    ESMatrix view;
    float    aspect;
-   UserData *userData = esContext->userData;
+   UserData *userData = (UserData *)esContext->userData;
    
    // Compute the window aspect ratio
    aspect = (GLfloat) esContext->width / (GLfloat) esContext->height;
@@ -177,12 +239,53 @@ int InitMVP ( ESContext *esContext )
 
 int InitShadowMap ( ESContext *esContext )
 {
-   UserData *userData = esContext->userData;
-   GLenum none = GL_NONE;
    GLint defaultFramebuffer = 0;
+   glGetIntegerv ( GL_FRAMEBUFFER_BINDING, &defaultFramebuffer );
+   UserData *userData =(UserData *) esContext->userData;
+   GLenum none = GL_NONE;
+   
 
    // use 1K by 1K texture for shadow map
-   userData->shadowMapTextureWidth = userData->shadowMapTextureHeight = 1024;
+   userData->shadowMapTextureWidth = userData->shadowMapTextureHeight = 500;
+
+
+   {
+
+         glGenTextures ( 1, &userData->testTextureId );
+   glBindTexture ( GL_TEXTURE_2D, userData->testTextureId );
+   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE );
+   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE );
+        InnerCheckGLError(__FILE__, __LINE__);
+   // Setup hardware comparison
+   // glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE );
+   // glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL );
+        
+   glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGBA,
+                  userData->shadowMapTextureWidth, userData->shadowMapTextureHeight, 
+                  0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+                  InnerCheckGLError(__FILE__, __LINE__);
+
+   glBindTexture ( GL_TEXTURE_2D, 0 );
+
+InnerCheckGLError(__FILE__, __LINE__);
+      // setup fbo
+      glGenFramebuffers ( 1, &userData->test_framebufferId );
+      glBindFramebuffer ( GL_FRAMEBUFFER, userData->test_framebufferId );
+InnerCheckGLError(__FILE__, __LINE__);
+      
+      glFramebufferTexture2D ( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, userData->testTextureId, 0 );
+InnerCheckGLError(__FILE__, __LINE__);
+
+      int ret = glCheckFramebufferStatus ( GL_FRAMEBUFFER );
+      if ( GL_FRAMEBUFFER_COMPLETE !=  ret)
+      {
+         printf("create framebuff failed--1.  %x\n", ret);
+         return FALSE;
+      }
+   }
+
 
    glGenTextures ( 1, &userData->shadowMapTextureId );
    glBindTexture ( GL_TEXTURE_2D, userData->shadowMapTextureId );
@@ -201,7 +304,10 @@ int InitShadowMap ( ESContext *esContext )
 
    glBindTexture ( GL_TEXTURE_2D, 0 );
 
-   glGetIntegerv ( GL_FRAMEBUFFER_BINDING, &defaultFramebuffer );
+
+
+   
+   printf("defaultFramebuffer = %u, userData->test_framebufferId=%u", defaultFramebuffer, userData->test_framebufferId);
 
    // setup fbo
    glGenFramebuffers ( 1, &userData->shadowMapBufferId );
@@ -216,6 +322,7 @@ int InitShadowMap ( ESContext *esContext )
  
    if ( GL_FRAMEBUFFER_COMPLETE != glCheckFramebufferStatus ( GL_FRAMEBUFFER ) )
    {
+      printf("create framebuff failed--2.\n");
       return FALSE;
    }
 
@@ -232,7 +339,7 @@ int Init ( ESContext *esContext )
    GLfloat *positions;
    GLuint *indices;
 
-   UserData *userData = esContext->userData;
+   UserData *userData =(UserData *) esContext->userData;
    const char vShadowMapShaderStr[] =  
       "#version 300 es                                  \n"
       "uniform mat4 u_mvpLightMatrix;                   \n"
@@ -368,7 +475,7 @@ int Init ( ESContext *esContext )
 
    // enable depth test
    glEnable ( GL_DEPTH_TEST );
-
+printf("init successful contex\n");
    return TRUE;
 }
 
@@ -379,7 +486,7 @@ void DrawScene ( ESContext *esContext,
                  GLint mvpLoc, 
                  GLint mvpLightLoc )
 {
-   UserData *userData = esContext->userData;
+   UserData *userData =(UserData *) esContext->userData;
  
    // Draw the ground
    // Load the vertex position
@@ -422,7 +529,7 @@ void DrawScene ( ESContext *esContext,
 
 void Draw ( ESContext *esContext )
 {
-   UserData *userData = esContext->userData;
+   UserData *userData =(UserData *) esContext->userData;
    GLint defaultFramebuffer = 0;
 
    // Initialize matrices
@@ -432,7 +539,13 @@ void Draw ( ESContext *esContext )
 
    // FIRST PASS: Render the scene from light position to generate the shadow map texture
    glBindFramebuffer ( GL_FRAMEBUFFER, userData->shadowMapBufferId );
-
+{
+        int samples = 0;
+        int sample_buffers = 0;
+        glGetIntegerv(GL_SAMPLES, &samples);
+        glGetIntegerv(GL_SAMPLE_BUFFERS, &sample_buffers);
+      //   printf( "\nRender() .samples:%d buffers:%d" ,samples, sample_buffers );
+    }
    // Set the viewport
    glViewport ( 0, 0, userData->shadowMapTextureWidth, userData->shadowMapTextureHeight );
 
@@ -452,9 +565,15 @@ void Draw ( ESContext *esContext )
    glDisable( GL_POLYGON_OFFSET_FILL );
 
    // SECOND PASS: Render the scene from eye location using the shadow map texture created in the first pass
-   glBindFramebuffer ( GL_FRAMEBUFFER, defaultFramebuffer );
+   glBindFramebuffer ( GL_FRAMEBUFFER, userData->test_framebufferId );
    glColorMask ( GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE );
-
+{
+        int samples = 0;
+        int sample_buffers = 0;
+        glGetIntegerv(GL_SAMPLES, &samples);
+        glGetIntegerv(GL_SAMPLE_BUFFERS, &sample_buffers);
+      //   printf( "\nRender() .samples:%d buffers:%d" ,samples, sample_buffers );
+    }
    // Set the viewport
    glViewport ( 0, 0, esContext->width, esContext->height );
    
@@ -473,6 +592,17 @@ void Draw ( ESContext *esContext )
    glUniform1i ( userData->shadowMapSamplerLoc, 0 );
 
    DrawScene ( esContext, userData->sceneMvpLoc, userData->sceneMvpLightLoc );
+   InnerCheckGLError(__FILE__, __LINE__);
+   int w =  userData->shadowMapTextureWidth;
+   int h = userData->shadowMapTextureHeight;
+   glBindFramebuffer(GL_READ_FRAMEBUFFER, userData->test_framebufferId);
+   InnerCheckGLError(__FILE__, __LINE__);
+   glBindFramebuffer( GL_DRAW_FRAMEBUFFER, defaultFramebuffer);
+   InnerCheckGLError(__FILE__, __LINE__);
+   glBlitFramebuffer(0, 0, w, h, 0, 0, w, h,  GL_COLOR_BUFFER_BIT, GL_NEAREST);
+   InnerCheckGLError(__FILE__, __LINE__);
+   glBindFramebuffer ( GL_FRAMEBUFFER, defaultFramebuffer );
+   InnerCheckGLError(__FILE__, __LINE__);
 }
 
 ///
@@ -480,7 +610,7 @@ void Draw ( ESContext *esContext )
 //
 void Shutdown ( ESContext *esContext )
 {
-   UserData *userData = esContext->userData;
+   UserData *userData =(UserData *) esContext->userData;
 
    glDeleteBuffers( 1, &userData->groundPositionVBO );
    glDeleteBuffers( 1, &userData->groundIndicesIBO );
@@ -504,13 +634,14 @@ int esMain ( ESContext *esContext )
 {
    esContext->userData = malloc ( sizeof( UserData ) );
 
-   esCreateWindow ( esContext, "Shadow Rendering", 500, 500, ES_WINDOW_RGB | ES_WINDOW_DEPTH );
+   esCreateWindow ( esContext, "Shadow Rendering", 500, 500, ES_WINDOW_RGB | ES_WINDOW_DEPTH |ES_WINDOW_MULTISAMPLE);
    
    if ( !Init ( esContext ) )
    {
+      printf("init failed\n");
       return GL_FALSE;
    }
-
+printf("success\n");
    esRegisterShutdownFunc ( esContext, Shutdown );
    esRegisterDrawFunc ( esContext, Draw );
    
