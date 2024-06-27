@@ -248,35 +248,70 @@ int InitShadowMap ( ESContext *esContext )
    // use 1K by 1K texture for shadow map
    userData->shadowMapTextureWidth = userData->shadowMapTextureHeight = 500;
 
-
+#if 0
    {
 
-         glGenTextures ( 1, &userData->testTextureId );
-   glBindTexture ( GL_TEXTURE_2D, userData->testTextureId );
-   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE );
-   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE );
-        InnerCheckGLError(__FILE__, __LINE__);
-   // Setup hardware comparison
-   // glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE );
-   // glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL );
-        
-   glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGBA,
-                  userData->shadowMapTextureWidth, userData->shadowMapTextureHeight, 
-                  0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
-                  InnerCheckGLError(__FILE__, __LINE__);
+      glGenTextures ( 1, &userData->testTextureId );
+      glBindTexture ( GL_TEXTURE_2D, userData->testTextureId );
+      glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+      glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+      glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE );
+      glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE );
+      InnerCheckGLError(__FILE__, __LINE__);
+      // Setup hardware comparison
+      // glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE );
+      // glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL );
 
-   glBindTexture ( GL_TEXTURE_2D, 0 );
+      glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGBA,
+               userData->shadowMapTextureWidth, userData->shadowMapTextureHeight, 
+               0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+               InnerCheckGLError(__FILE__, __LINE__);
 
-InnerCheckGLError(__FILE__, __LINE__);
+      glBindTexture ( GL_TEXTURE_2D, 0 );
+
+      InnerCheckGLError(__FILE__, __LINE__);
       // setup fbo
       glGenFramebuffers ( 1, &userData->test_framebufferId );
       glBindFramebuffer ( GL_FRAMEBUFFER, userData->test_framebufferId );
-InnerCheckGLError(__FILE__, __LINE__);
-      
+      InnerCheckGLError(__FILE__, __LINE__);
+
       glFramebufferTexture2D ( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, userData->testTextureId, 0 );
-InnerCheckGLError(__FILE__, __LINE__);
+      InnerCheckGLError(__FILE__, __LINE__);
+
+      int ret = glCheckFramebufferStatus ( GL_FRAMEBUFFER );
+      if ( GL_FRAMEBUFFER_COMPLETE !=  ret)
+      {
+         printf("create framebuff failed--1.  %x\n", ret);
+         return FALSE;
+      }
+   }
+#else
+   {
+
+      glGenTextures ( 1, &userData->testTextureId );
+      glBindTexture ( GL_TEXTURE_2D_MULTISAMPLE, userData->testTextureId );
+      InnerCheckGLError(__FILE__, __LINE__);
+      // Setup hardware comparison
+      // glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE );
+      // glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL );
+
+      // glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGBA,
+      //          userData->shadowMapTextureWidth, userData->shadowMapTextureHeight, 
+      //          0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+
+      glTexStorage2DMultisample( GL_TEXTURE_2D_MULTISAMPLE, 16, GL_RGBA8, userData->shadowMapTextureWidth, userData->shadowMapTextureHeight, GL_TRUE);
+               InnerCheckGLError(__FILE__, __LINE__);
+
+      glBindTexture ( GL_TEXTURE_2D, 0 );
+
+      InnerCheckGLError(__FILE__, __LINE__);
+      // setup fbo
+      glGenFramebuffers ( 1, &userData->test_framebufferId );
+      glBindFramebuffer ( GL_FRAMEBUFFER, userData->test_framebufferId );
+      InnerCheckGLError(__FILE__, __LINE__);
+
+      glFramebufferTexture2D ( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, userData->testTextureId, 0 );
+      InnerCheckGLError(__FILE__, __LINE__);
 
       int ret = glCheckFramebufferStatus ( GL_FRAMEBUFFER );
       if ( GL_FRAMEBUFFER_COMPLETE !=  ret)
@@ -286,6 +321,27 @@ InnerCheckGLError(__FILE__, __LINE__);
       }
    }
 
+
+
+
+
+
+   //  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorbuffer_);
+   //  glTexStorage2DMultisample( GL_TEXTURE_2D_MULTISAMPLE, 16, GL_RGBA, avm_window_width_, avm_window_height_, GL_TRUE);
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, avm_window_width_, avm_window_height_, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+   //  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer_, 0);
+   //  // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
+   //  unsigned int rbo;
+   //  glGenRenderbuffers(1, &rbo);
+   //  glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+
+   //  glRenderbufferStorageMultisample(GL_RENDERBUFFER, 16, GL_RGBA, avm_window_width_, avm_window_height_);
+   //  // glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, avm_window_width_, avm_window_height_); // use a single renderbuffer object for both a depth AND stencil buffer.
+   //  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo); // now actually attach it
+
+#endif
 
    glGenTextures ( 1, &userData->shadowMapTextureId );
    glBindTexture ( GL_TEXTURE_2D, userData->shadowMapTextureId );
@@ -529,6 +585,15 @@ void DrawScene ( ESContext *esContext,
 
 void Draw ( ESContext *esContext )
 {
+
+   {
+        int samples = 0;
+        int sample_buffers = 0;
+        glGetIntegerv(GL_SAMPLES, &samples);
+        glGetIntegerv(GL_SAMPLE_BUFFERS, &sample_buffers);
+        printf( "\nRender()  .samples:%d buffers:%d\n" ,samples, sample_buffers );
+    }
+
    UserData *userData =(UserData *) esContext->userData;
    GLint defaultFramebuffer = 0;
 
@@ -544,7 +609,7 @@ void Draw ( ESContext *esContext )
         int sample_buffers = 0;
         glGetIntegerv(GL_SAMPLES, &samples);
         glGetIntegerv(GL_SAMPLE_BUFFERS, &sample_buffers);
-      //   printf( "\nRender() .samples:%d buffers:%d" ,samples, sample_buffers );
+        printf( "\nRender() shadowMapBufferId .samples:%d buffers:%d\n" ,samples, sample_buffers );
     }
    // Set the viewport
    glViewport ( 0, 0, userData->shadowMapTextureWidth, userData->shadowMapTextureHeight );
@@ -572,7 +637,7 @@ void Draw ( ESContext *esContext )
         int sample_buffers = 0;
         glGetIntegerv(GL_SAMPLES, &samples);
         glGetIntegerv(GL_SAMPLE_BUFFERS, &sample_buffers);
-      //   printf( "\nRender() .samples:%d buffers:%d" ,samples, sample_buffers );
+        printf( "\ntest_framebufferId() .samples:%d buffers:%d\n" ,samples, sample_buffers );
     }
    // Set the viewport
    glViewport ( 0, 0, esContext->width, esContext->height );
@@ -634,7 +699,7 @@ int esMain ( ESContext *esContext )
 {
    esContext->userData = malloc ( sizeof( UserData ) );
 
-   esCreateWindow ( esContext, "Shadow Rendering", 500, 500, ES_WINDOW_RGB | ES_WINDOW_DEPTH |ES_WINDOW_MULTISAMPLE);
+   esCreateWindow ( esContext, "Shadow Rendering", 500, 500, ES_WINDOW_RGB | ES_WINDOW_DEPTH |ES_WINDOW_MULTISAMPLE | ES_WINDOW_ALPHA);
    
    if ( !Init ( esContext ) )
    {

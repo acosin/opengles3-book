@@ -183,9 +183,9 @@ GLboolean ESUTIL_API esCreateWindow ( ESContext *esContext, const char *title, G
       EGLint numConfigs = 0;
       EGLint attribList[] =
       {
-         EGL_RED_SIZE,       5,
-         EGL_GREEN_SIZE,     6,
-         EGL_BLUE_SIZE,      5,
+         EGL_RED_SIZE,       8,
+         EGL_GREEN_SIZE,     8,
+         EGL_BLUE_SIZE,      8,
          EGL_ALPHA_SIZE,     ( flags & ES_WINDOW_ALPHA ) ? 8 : EGL_DONT_CARE,
          EGL_DEPTH_SIZE,     ( flags & ES_WINDOW_DEPTH ) ? 8 : EGL_DONT_CARE,
          EGL_STENCIL_SIZE,   ( flags & ES_WINDOW_STENCIL ) ? 8 : EGL_DONT_CARE,

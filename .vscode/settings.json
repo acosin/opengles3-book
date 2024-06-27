@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "esutil.h": "c",
+        "gl32.h": "c"
+    }
+}
