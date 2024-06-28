@@ -66,6 +66,8 @@ typedef struct
    //test frame buffer
    GLuint test_framebufferId;
    GLuint testTextureId;
+   GLuint screen_shader_ID_;
+   GLuint screen_quadVAO_;
 
    // VBOs of the model
    GLuint groundPositionVBO;
@@ -462,9 +464,49 @@ int Init ( ESContext *esContext )
       "   outColor = v_color * sum;                                   \n"
       "}                                                              \n";
 
+
+const char vScreenShaderStr[] =  
+"#version 310 es                                   \n"
+"layout (location = 0) in vec2 aPos;                                   \n"
+"layout (location = 1) in vec2 aTexCoords;                                   \n"
+"out vec2 TexCoords;                                   \n"
+"void main()                                   \n"
+"{                                   \n"
+"    TexCoords = aTexCoords;  TexCoords.y = 1.0 - TexCoords.y;                                 \n"
+"    gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);                                    \n"
+"}                                     \n"
+;
+
+const char fScreenShaderStr[] =  
+"#version 310 es                                                             \n"
+"precision mediump float;                                                             \n"
+"out vec4 FragColor;                                                             \n"
+"in vec2 TexCoords;                                                             \n"
+"uniform mediump sampler2DMS screenTexture;                                                             \n"
+"void main()                                                             \n"
+"{                                                             \n"
+"	vec2 tex_coord = TexCoords;                                                             \n"
+"   // vec3 col = texture(screenTexture, tex_coord).rgb;                                                             \n"
+"  ivec2 size = textureSize(screenTexture);           \n"
+"  //int x = TexCoords.x*size.x;                          \n "
+"  //int y = (TexCoords.y*size.y);                                                                                 \n"
+"  ivec2 tex_coord_multiple = ivec2( TexCoords* vec2(size ));  \n"
+"      vec4 ret_color = vec4(0, 0, 0, 0);            \n"
+"  //tex_coord_multiple.x *= size.x;    tex_coord_multiple.y *= size.y;                            \n"
+"  for(int i=0; i<16; i++)     \n"
+"     ret_color += texelFetch(screenTexture, tex_coord_multiple, i);          \n"
+"  ret_color /= 16.0;"
+"    FragColor = ret_color;//vec4(col.b,col.g,col.r, 1.0);                                                             \n"
+"}                                                             \n" 
+;
+
+
+
    // Load the shaders and get a linked program object
    userData->shadowMapProgramObject = esLoadProgram ( vShadowMapShaderStr, fShadowMapShaderStr );
    userData->sceneProgramObject = esLoadProgram ( vSceneShaderStr, fSceneShaderStr );
+
+   userData->screen_shader_ID_ = esLoadProgram (vScreenShaderStr, fScreenShaderStr);
 
    // Get the uniform locations
    userData->sceneMvpLoc = glGetUniformLocation ( userData->sceneProgramObject, "u_mvpMatrix" );
@@ -517,6 +559,37 @@ int Init ( ESContext *esContext )
    userData->lightPosition[0] = 10.0f;
    userData->lightPosition[1] = 5.0f;
    userData->lightPosition[2] = 2.0f;
+
+
+
+
+       // y-flip texture coordinates
+    float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
+        // positions   // texCoords
+        -1.0f,  1.0f,  0.0f, 0.0f,
+        -1.0f, -1.0f,  0.0f, 1.0f,
+         1.0f, -1.0f,  1.0f, 1.0f,
+
+        -1.0f,  1.0f,  0.0f, 0.0f,
+         1.0f, -1.0f,  1.0f, 1.0f,
+         1.0f,  1.0f,  1.0f, 0.0f
+    };
+
+    // screen quad VAO
+    GLuint screen_quadVBO;
+    glGenVertexArrays(1, &userData->screen_quadVAO_);
+    glGenBuffers(1, &screen_quadVBO);
+    glBindVertexArray(userData->screen_quadVAO_);
+    glBindBuffer(GL_ARRAY_BUFFER, screen_quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glBindVertexArray(0);
+
+
+
    
    // create depth texture
    if ( !InitShadowMap( esContext ) )
@@ -591,7 +664,7 @@ void Draw ( ESContext *esContext )
         int sample_buffers = 0;
         glGetIntegerv(GL_SAMPLES, &samples);
         glGetIntegerv(GL_SAMPLE_BUFFERS, &sample_buffers);
-        printf( "\nRender()  .samples:%d buffers:%d\n" ,samples, sample_buffers );
+      //   printf( "\nRender()  .samples:%d buffers:%d\n" ,samples, sample_buffers );
     }
 
    UserData *userData =(UserData *) esContext->userData;
@@ -609,7 +682,7 @@ void Draw ( ESContext *esContext )
         int sample_buffers = 0;
         glGetIntegerv(GL_SAMPLES, &samples);
         glGetIntegerv(GL_SAMPLE_BUFFERS, &sample_buffers);
-        printf( "\nRender() shadowMapBufferId .samples:%d buffers:%d\n" ,samples, sample_buffers );
+      //   printf( "\nRender() shadowMapBufferId .samples:%d buffers:%d\n" ,samples, sample_buffers );
     }
    // Set the viewport
    glViewport ( 0, 0, userData->shadowMapTextureWidth, userData->shadowMapTextureHeight );
@@ -637,7 +710,7 @@ void Draw ( ESContext *esContext )
         int sample_buffers = 0;
         glGetIntegerv(GL_SAMPLES, &samples);
         glGetIntegerv(GL_SAMPLE_BUFFERS, &sample_buffers);
-        printf( "\ntest_framebufferId() .samples:%d buffers:%d\n" ,samples, sample_buffers );
+      //   printf( "\ntest_framebufferId() .samples:%d buffers:%d\n" ,samples, sample_buffers );
     }
    // Set the viewport
    glViewport ( 0, 0, esContext->width, esContext->height );
@@ -658,8 +731,12 @@ void Draw ( ESContext *esContext )
 
    DrawScene ( esContext, userData->sceneMvpLoc, userData->sceneMvpLightLoc );
    InnerCheckGLError(__FILE__, __LINE__);
+
+
    int w =  userData->shadowMapTextureWidth;
    int h = userData->shadowMapTextureHeight;
+#if 0
+
    glBindFramebuffer(GL_READ_FRAMEBUFFER, userData->test_framebufferId);
    InnerCheckGLError(__FILE__, __LINE__);
    glBindFramebuffer( GL_DRAW_FRAMEBUFFER, defaultFramebuffer);
@@ -668,6 +745,28 @@ void Draw ( ESContext *esContext )
    InnerCheckGLError(__FILE__, __LINE__);
    glBindFramebuffer ( GL_FRAMEBUFFER, defaultFramebuffer );
    InnerCheckGLError(__FILE__, __LINE__);
+
+#else
+   glBindFramebuffer( GL_DRAW_FRAMEBUFFER, defaultFramebuffer);
+   InnerCheckGLError(__FILE__, __LINE__);
+
+   glViewport(0, 0, w, h);
+   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glUseProgram(userData->screen_shader_ID_);
+    glUniform1i(glGetUniformLocation(userData->screen_shader_ID_, "screenTexture"), 0);
+    InnerCheckGLError(__FILE__, __LINE__);
+    glBindVertexArray(userData->screen_quadVAO_);
+    InnerCheckGLError(__FILE__, __LINE__);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture( GL_TEXTURE_2D_MULTISAMPLE, userData->testTextureId ); // use the color attachment texture as the texture of the quad plane
+    InnerCheckGLError(__FILE__, __LINE__);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    InnerCheckGLError(__FILE__, __LINE__);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+    glBindVertexArray(0);
+    InnerCheckGLError(__FILE__, __LINE__);
+#endif
 }
 
 ///
