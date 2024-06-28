@@ -482,7 +482,7 @@ const char fScreenShaderStr[] =
 "precision mediump float;                                                             \n"
 "out vec4 FragColor;                                                             \n"
 "in vec2 TexCoords;                                                             \n"
-"uniform mediump sampler2DMS screenTexture;                                                             \n"
+"uniform mediump sampler2DMS screenTexture;      uniform mediump int samples;                       \n"
 "void main()                                                             \n"
 "{                                                             \n"
 "	vec2 tex_coord = TexCoords;                                                             \n"
@@ -493,9 +493,9 @@ const char fScreenShaderStr[] =
 "  ivec2 tex_coord_multiple = ivec2( TexCoords* vec2(size ));  \n"
 "      vec4 ret_color = vec4(0, 0, 0, 0);            \n"
 "  //tex_coord_multiple.x *= size.x;    tex_coord_multiple.y *= size.y;                            \n"
-"  for(int i=0; i<16; i++)     \n"
+"  for(int i=0; i<samples; i++)     \n"
 "     ret_color += texelFetch(screenTexture, tex_coord_multiple, i);          \n"
-"  ret_color /= 16.0;"
+"  ret_color /= float(samples);"
 "    FragColor = ret_color;//vec4(col.b,col.g,col.r, 1.0);                                                             \n"
 "}                                                             \n" 
 ;
@@ -755,6 +755,9 @@ void Draw ( ESContext *esContext )
 
     glUseProgram(userData->screen_shader_ID_);
     glUniform1i(glGetUniformLocation(userData->screen_shader_ID_, "screenTexture"), 0);
+
+      glUniform1i(glGetUniformLocation(userData->screen_shader_ID_, "samples"), 16);
+
     InnerCheckGLError(__FILE__, __LINE__);
     glBindVertexArray(userData->screen_quadVAO_);
     InnerCheckGLError(__FILE__, __LINE__);
