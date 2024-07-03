@@ -69,6 +69,8 @@ typedef struct
    GLuint screen_shader_ID_;
    GLuint screen_quadVAO_;
 
+   int msaa_level_;
+
    // VBOs of the model
    GLuint groundPositionVBO;
    GLuint groundIndicesIBO;
@@ -248,7 +250,8 @@ int InitShadowMap ( ESContext *esContext )
    
 
    // use 1K by 1K texture for shadow map
-   userData->shadowMapTextureWidth = userData->shadowMapTextureHeight = 500;
+   userData->shadowMapTextureWidth = 2560;
+   userData->shadowMapTextureHeight = 1392;
 
 #if 0
    {
@@ -300,8 +303,8 @@ int InitShadowMap ( ESContext *esContext )
       // glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGBA,
       //          userData->shadowMapTextureWidth, userData->shadowMapTextureHeight, 
       //          0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
-
-      glTexStorage2DMultisample( GL_TEXTURE_2D_MULTISAMPLE, 16, GL_RGBA8, userData->shadowMapTextureWidth, userData->shadowMapTextureHeight, GL_TRUE);
+      printf("userData->msaa_level_ :%d\n" , userData->msaa_level_ );
+      glTexStorage2DMultisample( GL_TEXTURE_2D_MULTISAMPLE, userData->msaa_level_, GL_RGBA8, userData->shadowMapTextureWidth, userData->shadowMapTextureHeight, GL_TRUE);
                InnerCheckGLError(__FILE__, __LINE__);
 
       glBindTexture ( GL_TEXTURE_2D, 0 );
@@ -329,7 +332,7 @@ int InitShadowMap ( ESContext *esContext )
 
 
    //  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorbuffer_);
-   //  glTexStorage2DMultisample( GL_TEXTURE_2D_MULTISAMPLE, 16, GL_RGBA, avm_window_width_, avm_window_height_, GL_TRUE);
+   //  glTexStorage2DMultisample( GL_TEXTURE_2D_MULTISAMPLE, 16, GL_RGBA8, avm_window_width_, avm_window_height_, GL_TRUE);
     // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, avm_window_width_, avm_window_height_, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -443,9 +446,9 @@ int Init ( ESContext *esContext )
       "                                                               \n"
       "float lookup ( float x, float y )                              \n"
       "{                                                              \n"
-      "   float pixelSize = 0.002; // 1/500                           \n"
-      "   vec4 offset = vec4 ( x * pixelSize * v_shadowCoord.w,       \n"
-      "                        y * pixelSize * v_shadowCoord.w,       \n"
+      "   float pixelSizeX = 1.0/2560.0; float pixelSizeY = 1.0/1392.0;                            \n"
+      "   vec4 offset = vec4 ( x * pixelSizeX * v_shadowCoord.w,       \n"
+      "                        y * pixelSizeY * v_shadowCoord.w,       \n"
       "                        -0.005 * v_shadowCoord.w, 0.0 );       \n"
       "   return textureProj ( s_shadowMap, v_shadowCoord + offset ); \n"
       "}                                                              \n"
@@ -500,7 +503,8 @@ const char fScreenShaderStr[] =
 "}                                                             \n" 
 ;
 
-
+   userData->msaa_level_ = 4;
+   printf("mass level:%d\n", userData->msaa_level_);
 
    // Load the shaders and get a linked program object
    userData->shadowMapProgramObject = esLoadProgram ( vShadowMapShaderStr, fShadowMapShaderStr );
@@ -756,7 +760,7 @@ void Draw ( ESContext *esContext )
     glUseProgram(userData->screen_shader_ID_);
     glUniform1i(glGetUniformLocation(userData->screen_shader_ID_, "screenTexture"), 0);
 
-      glUniform1i(glGetUniformLocation(userData->screen_shader_ID_, "samples"), 16);
+      glUniform1i(glGetUniformLocation(userData->screen_shader_ID_, "samples"), userData->msaa_level_);
 
     InnerCheckGLError(__FILE__, __LINE__);
     glBindVertexArray(userData->screen_quadVAO_);
@@ -801,7 +805,7 @@ int esMain ( ESContext *esContext )
 {
    esContext->userData = malloc ( sizeof( UserData ) );
 
-   esCreateWindow ( esContext, "Shadow Rendering", 500, 500, ES_WINDOW_RGB | ES_WINDOW_DEPTH |ES_WINDOW_MULTISAMPLE | ES_WINDOW_ALPHA);
+   esCreateWindow ( esContext, "Shadow Rendering", 2560, 1392, ES_WINDOW_RGB | ES_WINDOW_DEPTH |ES_WINDOW_MULTISAMPLE | ES_WINDOW_ALPHA);
    
    if ( !Init ( esContext ) )
    {
