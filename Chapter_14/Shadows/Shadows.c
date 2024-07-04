@@ -95,13 +95,14 @@ typedef struct
 } UserData;
 
 
-
+#define ENABLE_GL_CHECK 1
 unsigned int InnerCheckGLError(const char* file, int line);
 
-#if ENABLE_GL_CHECK
+#ifdef  ENABLE_GL_CHECK
 #define CheckGLError(glFunc) \
     glFunc;\
     InnerCheckGLError(__FILE__, __LINE__);
+#pragma   message("defined gl check")
 #else
 #define CheckGLError(glFunc) glFunc;
 
@@ -143,9 +144,9 @@ unsigned int InnerCheckGLError(const char* file, int line)
         GLenum error_code = glGetError();
     if (error_code != GL_NO_ERROR)
       printf("error:%s, line:%d, des:%s\n", file, line, ErrorDescription(error_code));
-      //   TN_LOG(TN_LOG_ERROR) << "ERROR:" << file << ":" << line << " ==>" << ErrorDescription(error_code) <<  std::endl;
+      //   printf("ERROR:" << file << ":" << line << " ==>" << ErrorDescription(error_code) <<  std::endl;
     // else
-    //    TN_LOG(TN_LOG_ERROR) << "ERROR:" << file << ":" << line << " ==>" << ErrorDescription(error_code) <<  std::endl;
+    //    printf("ERROR:" << file << ":" << line << " ==>" << ErrorDescription(error_code) <<  std::endl;
     return error_code;
 }
 
@@ -318,7 +319,62 @@ int InitShadowMap ( ESContext *esContext )
       glFramebufferTexture2D ( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, userData->testTextureId, 0 );
       InnerCheckGLError(__FILE__, __LINE__);
 
+
+      {
+
+         CheckGLError("StitchingRenderer::InitScreenFrameBuffer");
+      //   create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
+        // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
+        unsigned int rbo;
+        CheckGLError(glGenRenderbuffers(1, &rbo));
+        CheckGLError(glBindRenderbuffer(GL_RENDERBUFFER, rbo));
+
+        CheckGLError(glRenderbufferStorageMultisample(GL_RENDERBUFFER, userData->msaa_level_, GL_DEPTH24_STENCIL8, userData->shadowMapTextureWidth, userData->shadowMapTextureHeight));
+      //   CheckGLError(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, avm_window_width_, avm_window_height_)); // use a single renderbuffer object for both a depth AND stencil buffer.
+        CheckGLError(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo)); // now actually attach it
+
+      }
+
       int ret = glCheckFramebufferStatus ( GL_FRAMEBUFFER );
+
+   int status = ret;
+      switch (status)
+    {
+    case GL_FRAMEBUFFER_COMPLETE:
+        {
+            printf("Success::FRAMEBUFFER:: Framebuffer is  complete(GL_FRAMEBUFFER_COMPLETE)! ");
+        }
+        break;
+    case GL_FRAMEBUFFER_UNDEFINED:
+        {
+            printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete(GL_FRAMEBUFFER_UNDEFINED)! ");
+        }
+        break;
+    case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+        {
+            printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete(GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT)! ");
+        }
+        break;
+    case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+        {
+            printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete(GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT)! ");
+        }
+        break;
+    case GL_FRAMEBUFFER_UNSUPPORTED:
+        {
+            printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete(GL_FRAMEBUFFER_UNSUPPORTED)! ");
+        }
+        break;
+    case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
+        {
+            printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete(GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE)! ");
+        }
+        break;
+    default:
+        printf("ERROR::FRAMEBUFFER:: Framebuffer is not complete(UNKNOW)! %x" , status );
+        break;
+    }
+
       if ( GL_FRAMEBUFFER_COMPLETE !=  ret)
       {
          printf("create framebuff failed--1.  %x\n", ret);
